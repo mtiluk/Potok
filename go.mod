@@ -1,6 +1,8 @@
 module github.com/michaeltukdev/Potok
 
-go 1.23.8
+go 1.24.0
+
+toolchain go1.24.13
 
 require (
 	github.com/golang-migrate/migrate/v4 v4.18.3
@@ -27,7 +29,8 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
-	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/term v0.39.0 // indirect
 	modernc.org/libc v1.66.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect

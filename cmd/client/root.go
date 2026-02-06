@@ -18,11 +18,12 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.AddCommand(syncCmd)
-	rootCmd.AddCommand(addVaultCmd)
-	rootCmd.AddCommand(uploadFileCmd)
-	rootCmd.AddCommand(restoreVaultCmd)
-	rootCmd.AddCommand(listVaultsCmd)
-	rootCmd.AddCommand(setApiUrlCmd)
-	rootCmd.AddCommand(setApiKeyCmd)
+	rootCmd.AddCommand(initCmd)
+	// rootCmd.AddCommand(syncCmd)
+	// rootCmd.AddCommand(addVaultCmd)
+	// rootCmd.AddCommand(uploadFileCmd)
+	// rootCmd.AddCommand(restoreVaultCmd)
+	// rootCmd.AddCommand(listVaultsCmd)
+	// rootCmd.AddCommand(setApiUrlCmd)
+	// rootCmd.AddCommand(setApiKeyCmd)
 }
