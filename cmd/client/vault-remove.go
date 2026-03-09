@@ -15,7 +15,7 @@ import (
 //
 // Usage Examples:
 //   potok vault-remove notes
-//   potok vault-remove notes --keep-password
+//   potok vault-remove notes
 //
 // Inputs:
 //   - Args:
