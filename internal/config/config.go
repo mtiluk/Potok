@@ -7,8 +7,9 @@ import (
 )
 
 type VaultInfo struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
+	Name       string `json:"name"`
+	Path       string `json:"path"`
+	LastSynced string `json:"last_synced,omitempty"`
 }
 
 type Config struct {
@@ -81,4 +82,44 @@ func (cfg *Config) AddVault(vault VaultInfo) {
 	}
 
 	cfg.Vaults = append(cfg.Vaults, vault)
+}
+
+func (cfg *Config) HasVault(name string) bool {
+	for _, v := range cfg.Vaults {
+		if v.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (cfg *Config) RemoveVault(name string) {
+	for i, v := range cfg.Vaults {
+		if v.Name == name {
+			cfg.Vaults = append(cfg.Vaults[:i], cfg.Vaults[i+1:]...)
+			return
+		}
+	}
+}
+
+func Path() string {
+	p, _ := configPath()
+	return p
+}
+
+func (cfg *Config) Save() error {
+	path, err := configPath()
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	return enc.Encode(cfg)
 }

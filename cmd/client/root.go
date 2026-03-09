@@ -22,5 +22,6 @@ func Execute() {
 func init() {
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(addVaultCmd)
+	rootCmd.AddCommand(listVaultsCmd)
 	rootCmd.SilenceErrors = true
 }
