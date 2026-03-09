@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/fatih/color"
+	"github.com/michaeltukdev/Potok/internal/style"
 	"github.com/spf13/cobra"
 )
 
@@ -13,10 +13,8 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() {
-	red := color.New(color.FgRed, color.Bold)
-
 	if err := rootCmd.Execute(); err != nil {
-		red.Fprintf(os.Stderr, "Error: %v\n", err)
+		style.Red.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }
