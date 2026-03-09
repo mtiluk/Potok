@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/fatih/color"
 	"github.com/michaeltukdev/Potok/internal/client"
 	"github.com/michaeltukdev/Potok/internal/config"
 	"github.com/michaeltukdev/Potok/internal/prompt"
+	"github.com/michaeltukdev/Potok/internal/style"
 	"github.com/spf13/cobra"
 	"github.com/zalando/go-keyring"
 )
@@ -34,13 +34,7 @@ var initCmd = &cobra.Command{
 	Short: "Initialises Potok on this device by collecting the required configuration settings.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		bold := color.New(color.Bold)
-		dim := color.New(color.Faint)
-		green := color.New(color.FgGreen)
-		cyan := color.New(color.FgCyan)
-		red := color.New(color.FgRed)
-
-		bold.Fprintln(cmd.OutOrStdout(), "Potok setup (device initialisation)")
+		style.Bold.Fprintln(cmd.OutOrStdout(), "Potok setup (device initialisation)")
 		cmd.Println()
 
 		flagURL, err := cmd.Flags().GetString("url")
@@ -53,7 +47,7 @@ var initCmd = &cobra.Command{
 		if strings.TrimSpace(flagURL) != "" {
 			url = strings.TrimSpace(flagURL)
 		} else {
-			url, err = prompt.InputDefault(dim.Sprint("Server URL"), "http://localhost:8080")
+			url, err = prompt.InputDefault(style.Dim.Sprint("Server URL"), "http://localhost:8080")
 			if err != nil {
 				return fmt.Errorf("read server url: %w", err)
 			}
@@ -62,7 +56,7 @@ var initCmd = &cobra.Command{
 		url = strings.TrimSpace(url)
 		url = strings.TrimSuffix(url, "/")
 
-		apiKey, err := prompt.Secret(dim.Sprint("API key (input hidden): "))
+		apiKey, err := prompt.Secret(style.Dim.Sprint("API key (input hidden): "))
 		if err != nil {
 			return fmt.Errorf("read api key: %w", err)
 		}
@@ -90,14 +84,14 @@ var initCmd = &cobra.Command{
 			return fmt.Errorf("decode /me response: %w", err)
 		}
 
-		green.Fprintln(cmd.OutOrStdout(), "✔ Authentication successful!")
+		style.Green.Fprintln(cmd.OutOrStdout(), "✔ Authentication successful!")
 
 		cfg, err := config.Load()
 		if err != nil {
 			return fmt.Errorf("load config: %w", err)
 		}
 
-		cfg.APIURL = url
+		cfg.ServerURL = url
 		cfg.Username = me.Username
 
 		if err := config.Save(cfg); err != nil {
@@ -109,13 +103,10 @@ var initCmd = &cobra.Command{
 		}
 
 		cmd.Println()
-		green.Fprintln(cmd.OutOrStdout(), "✔ Initialized.")
-		cmd.Printf("  %s %s\n", dim.Sprint("Config saved (api_url):"), cyan.Sprint(cfg.APIURL))
-		cmd.Printf("  %s %s\n", dim.Sprint("Signed in as:"), bold.Sprint(cfg.Username))
-		cmd.Printf("  %s\n", dim.Sprint(`API key stored in OS keyring (service="potok", user="api-key").`))
-
-		// Print auth failure hint in red if needed
-		_ = red // available for any future error printing
+		style.Green.Fprintln(cmd.OutOrStdout(), "✔ Initialized.")
+		cmd.Printf("  %s %s\n", style.Green.Sprint("Config saved (api_url):"), style.Cyan.Sprint(cfg.ServerURL))
+		cmd.Printf("  %s %s\n", style.Dim.Sprint("Signed in as:"), style.Bold.Sprint(cfg.Username))
+		cmd.Printf("  %s\n", style.Dim.Sprint(`API key stored in OS keyring (service="potok", user="api-key").`))
 
 		return nil
 	},

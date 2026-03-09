@@ -12,10 +12,12 @@ type VaultInfo struct {
 }
 
 type Config struct {
-	APIURL   string      `json:"api_url"`
-	Username string      `json:"username,omitempty"`
-	Vaults   []VaultInfo `json:"vaults,omitempty"`
+	ServerURL string      `json:"api_url"`
+	Username  string      `json:"username,omitempty"`
+	Vaults    []VaultInfo `json:"vaults,omitempty"`
 }
+
+// REFACTOR BELOW LATER
 
 func configPath() (string, error) {
 	home, err := os.UserHomeDir()
