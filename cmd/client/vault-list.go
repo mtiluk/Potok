@@ -8,8 +8,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//
+// potok vault-list - Lists all vaults registered locally on this device.
+//
+// Usage Examples:
+//   potok vault-list
+//
+// Output:
+//   - Name, local path, and last sync time for each vault
+//   - Shows "never" if vault has not been synced
+//   - Shows helpful message if no vaults are registered
+//
+
 var listVaultsCmd = &cobra.Command{
-	Use:   "vaults-list",
+	Use:   "vault-list",
 	Short: "Lists vaults known locally",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
