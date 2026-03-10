@@ -24,5 +24,6 @@ func init() {
 	rootCmd.AddCommand(addVaultCmd)
 	rootCmd.AddCommand(listVaultsCmd)
 	rootCmd.AddCommand(removeVaultCmd)
+	rootCmd.AddCommand(doctorCmd)
 	rootCmd.SilenceErrors = true
 }
