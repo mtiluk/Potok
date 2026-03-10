@@ -14,7 +14,7 @@ func ApiMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		_, err := database.FindByAPIKey(authHeader)
+		_, err := database.AuthenticateByKey(authHeader)
 		if err != nil {
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
