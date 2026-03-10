@@ -15,19 +15,14 @@ type Vault struct {
 	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
-func FetchUserVaults(apiKey string) ([]Vault, error) {
-	user, err := FindByAPIKey(apiKey)
-	if err != nil {
-		return nil, errors.New("user not found")
-	}
-
-	rows, err := DB.Query("SELECT id, user_id, name, created_at, updated_at FROM vaults WHERE user_id = ?", user.Id)
+func FetchUserVaults(userID int) ([]Vault, error) {
+	rows, err := DB.Query("SELECT id, user_id, name, created_at, updated_at FROM vaults WHERE user_id = ?", userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var vaults []Vault
+	vaults := []Vault{}
 	for rows.Next() {
 		var v Vault
 		if err := rows.Scan(&v.ID, &v.UserID, &v.Name, &v.CreatedAt, &v.UpdatedAt); err != nil {
@@ -36,19 +31,11 @@ func FetchUserVaults(apiKey string) ([]Vault, error) {
 		vaults = append(vaults, v)
 	}
 
-	if vaults == nil {
-		vaults = []Vault{}
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return vaults, nil
+	return vaults, rows.Err()
 }
 
 func FetchUserVaultByName(apiKey, vaultName string) (*Vault, error) {
-	user, err := FindByAPIKey(apiKey)
+	user, err := AuthenticateByKey(apiKey)
 	if err != nil {
 		return nil, errors.New("user not found")
 	}
