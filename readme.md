@@ -1,92 +1,152 @@
 > [!WARNING]
-> THIS IS STILL IN ACTIVE DEVELOPMENT. A LOT OF THE FUNCTIONALITY DOES NOT WORK.
+> Potok is in active development. Some commands are not yet implemented.
 
 # Potok
 
-**Potok** is a secure, cross-platform, self-hosted CLI tool for automatically syncing and backing up [Obsidian](https://obsidian.md/) vaults (or technically anything) with end-to-end encryption. Potok is free, open-source, and designed for privacy and flexibility.
+**Potok** is a self-hosted, CLI-based tool for backing up and syncing [Obsidian](https://obsidian.md/) vaults with end-to-end encryption. Your notes stay yours — the server never sees your passwords or unencrypted data.
 
 ## Features
 
-- **End-to-End Encryption (E2EE):** Vaults are encrypted locally before uploading to server; only you hold the keys.
-- **Self-Hosted:** As a fan of self-hosting, you run your own Potok server—no third-party cloud required.
-- **Multiple Vaults:** You can easily sync and manage multiple vaults independently of one another.
-- **Automatic Sync:** Detects changes within vaults and syncs them automatically
-- **Cross-Platform:** Works on Windows and Linux (Untested on MacOS - would appreciate if someone could do this for me).
-- **CLI-Based:** For simplicity, we currently only support CLI through commands (potentially a GUI in the future)
-- **Secure Key Storage:** Your encryption keys and API keys never leave your operating system, they're stored within your OS keyring.
-- **No Vendor Lock-in:** Free and open-source.
-
-## Getting Started
-
-## Usage
-
-### **Configure the Client**
-
-### **List Your Vaults**
-
-### **Sync a Vault (WIP)**
+- **End-to-End Encryption** — Vaults are encrypted locally before leaving your device. The server only stores encrypted data.
+- **Self-Hosted** — Run your own Potok server. No third-party cloud, no vendor lock-in.
+- **Multiple Vaults** — Manage and sync multiple vaults independently.
+- **Automatic Sync** — Watches your vault folder for changes and pushes them automatically.
+- **Cross-Platform** — Supports Windows and Linux. macOS is untested but might work?
+- **Secure Key Storage** — Encryption passwords and API keys are stored in your OS keyring (Windows Credential Manager, macOS Keychain, Linux Secret Service).
+- **Free & Open Source** — No file size limits, no file count limits, no paywalls.
 
 ## Commands
 
-| Command            | Description                                 |
-|--------------------|---------------------------------------------|
-| `set-api-url`      | Set the Potok server URL                    |
-| `set-api-key`      | Set your API key (stored securely)          |
-| `list-vaults`      | List all your vaults on the server          |
-| `sync`             | Sync your vaults (automatic, coming soon)   |
-| `upload`           | Encrypt and upload a new vault (planned)    |
-| `download`         | Download and decrypt a vault (planned)      |
+| Command | Description |
+|---|---|
+| `potok init` | Set server URL and API key |
+| `potok vault-add` | Register a local folder as a vault |
+| `potok vaults-list` | List vaults registered locally |
+| `potok vault-remove [name]` | Remove a vault from local config |
+| `potok remote-list` | List vaults available on the server |
+| `potok remote-delete [name]` | Delete a vault from the server |
+| `potok push [name]` | Encrypt and upload a vault |
+| `potok pull [name]` | Download and decrypt a vault |
+| `potok sync [name]` | Watch and auto-sync a vault |
+| `potok doctor` | Run diagnostics on your setup |
+
+## Getting Started
+
+### Prerequisites
+
+- A running Potok server ([server setup guide](update))
+- An API key from your server admin
+- Go 1.21+ (if building from source)
+
+### Install
+
+```bash
+go install github.com/michaeltukdev/Potok/cmd/client@latest
+```
+
+### Initialise
+
+```bash
+potok init
+```
+
+You'll be prompted for your server URL and API key. These are stored locally in `~/.potok/config.json` and your OS keyring respectively.
+
+## Usage
+
+### Register a vault
+
+```bash
+potok vault-add
+```
+
+Prompts for a vault name, local folder path, and encryption password. This only registers the vault locally — nothing is uploaded yet.
+
+### List local vaults
+
+```bash
+potok vaults-list
+```
+
+Shows all vaults registered on this device with their path and last sync time.
+
+### Push a vault to the server
+
+```bash
+potok push notes
+```
+
+Encrypts and uploads the vault to your server. Creates the remote vault automatically on first push.
+
+### Pull a vault from the server
+
+```bash
+potok pull notes --dest ~/Documents/Obsidian/Notes
+```
+
+Downloads and decrypts a vault into the specified directory.
+
+### Sync a vault
+
+```bash
+potok sync notes
+```
+
+Long-running process that watches for local changes and pushes them automatically.
 
 ## Configuration
 
-Potok stores your configuration in `~/.potok/config.json`:
+### Config file
+
+| OS | Path |
+|---|---|
+| Linux | `~/.potok/config.json` |
+| Windows | `%USERPROFILE%\.potok\config.json` |
 
 ```json
 {
   "api_url": "http://localhost:8080",
+  "vaults": [
+    {
+      "name": "notes",
+      "path": "/home/user/Documents/Obsidian/Notes",
+      "last_synced": ""
+    }
+  ]
 }
 ```
 
-API keys and vault passwords are stored securely in your OS keyring.
+### Sensitive data
 
+Passwords and API keys are stored in your OS keyring under the `potok` service — never in config files.
+
+| OS | Keyring backend |
+|---|---|
+| Linux | Secret Service (GNOME Keyring / KDE Wallet) |
+| macOS | Keychain |
+| Windows | Credential Manager |
+
+| Keyring entry | Value |
+|---|---|
+| `potok / api-key` | Your server API key |
+| `potok / vault:{name}` | Encryption password for that vault |
 
 ## Security
 
-- All data is encrypted locally before upload.
-- The server never sees your passwords or unencrypted data.
-- API keys and passwords are never displayed after being set.
+- All encryption and decryption happens locally on your device.
+- The server only stores encrypted blobs — it never sees your passwords or plaintext.
+- Passwords and API keys are stored in your OS keyring, not in config files.
+- Encryption uses AES via `golang.org/x/crypto`.
 
 ## Roadmap
 
+- [x] CLI skeleton and local vault management
+- [x] OS keyring integration for passwords and API keys
+- [ ] Push — encrypt and upload vaults
+- [ ] Pull — download and decrypt vaults
 - [ ] Automatic file watching and sync
-- [ ] File-level sync and conflict handling
+- [ ] File-level sync (currently uploads entire vault)
+- [ ] Conflict detection and handling
+- [ ] Version history
 - [ ] Web dashboard for server admin
-- [ ] Cross-platform installer
-- [ ] More documentation and examples
-
-## Contributors
-
-Thanks to everyone who has contributed to Potok!
-
-<table>
-  <tr>
-    <td align="center">
-      <a href="https://github.com/michaeltukdev">
-        <img src="https://avatars.githubusercontent.com/u/66504185" width="80px;" alt=""/>
-        <br />
-        <sub><b>Michael Tuk</b></sub>
-      </a>
-      <br />Creator & Maintainer
-    </td>
-    <!-- You could be here!-->
-  </tr>
-</table>
-
-Contributions are welcome! Please open issues or pull requests.
-
-## Acknowledgements
-
-- [Obsidian](https://obsidian.md/)
-- [spf13/cobra](https://github.com/spf13/cobra)
-- [zalando/go-keyring](https://github.com/zalando/go-keyring)
-- [fsnotify](https://github.com/fsnotify/fsnotify)
+- [ ] Cross-platform installers
