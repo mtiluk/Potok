@@ -123,3 +123,21 @@ func (cfg *Config) Save() error {
 	enc.SetIndent("", "  ")
 	return enc.Encode(cfg)
 }
+
+func (c *Config) VaultPath(name string) string {
+	for _, v := range c.Vaults {
+		if v.Name == name {
+			return v.Path
+		}
+	}
+	return ""
+}
+
+func (c *Config) UpdateLastSynced(name, timestamp string) {
+	for i, v := range c.Vaults {
+		if v.Name == name {
+			c.Vaults[i].LastSynced = timestamp
+			return
+		}
+	}
+}
