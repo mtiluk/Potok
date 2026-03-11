@@ -69,27 +69,55 @@ func createVault(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// func downloadFile(w http.ResponseWriter, r *http.Request) {
-// 	apiKey := extractAPIKey(r)
-// 	user, err := database.AuthenticateByKey(apiKey)
-// 	if err != nil {
-// 		http.Error(w, "Invalid API Key", http.StatusUnauthorized)
-// 		return
-// 	}
+func downloadFile(w http.ResponseWriter, r *http.Request) {
+	apiKey := extractAPIKey(r)
+	user, err := database.AuthenticateByKey(apiKey)
+	if err != nil {
+		http.Error(w, "Invalid API Key", http.StatusUnauthorized)
+		return
+	}
 
-// 	vaultName := mux.Vars(r)["vault"]
+	vaultName := mux.Vars(r)["vault"]
+	filePath := mux.Vars(r)["filePath"]
 
-// 	existing, err := database.FetchVaultByName(user.Id, vaultName)
-// 	if err != nil {
-// 		http.Error(w, "internal error", http.StatusInternalServerError)
-// 		return
-// 	}
+	cleanPath := filepath.FromSlash(filepath.Clean(filePath))
+	if strings.Contains(cleanPath, "..") {
+		http.Error(w, "invalid path", http.StatusBadRequest)
+		return
+	}
 
-// 	if existing != nil {
-// 		w.WriteHeader(http.StatusConflict)
-// 		return
-// 	}
-// }
+	existing, err := database.FetchVaultByName(user.Id, vaultName)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	if existing == nil {
+		http.Error(w, "vault not found", http.StatusNotFound)
+		return
+	}
+
+	absPath := filepath.Join(
+		"./uploads",
+		strconv.Itoa(user.Id),
+		vaultName,
+		cleanPath,
+	)
+
+	file, err := os.Open(absPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			http.Error(w, "file not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	io.Copy(w, file)
+}
 
 func uploadFile(w http.ResponseWriter, r *http.Request) {
 	apiKey := extractAPIKey(r)
@@ -158,4 +186,69 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	fmt.Fprintf(w, "File uploaded: %s\n", cleanPath)
+}
+
+func listFiles(w http.ResponseWriter, r *http.Request) {
+	apiKey := extractAPIKey(r)
+	user, err := database.AuthenticateByKey(apiKey)
+	if err != nil {
+		http.Error(w, "Invalid API Key", http.StatusUnauthorized)
+		return
+	}
+
+	vaultName := mux.Vars(r)["vault"]
+
+	existing, err := database.FetchVaultByName(user.Id, vaultName)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	if existing == nil {
+		http.Error(w, "vault not found", http.StatusNotFound)
+		return
+	}
+
+	root := filepath.Join("./uploads", strconv.Itoa(user.Id), vaultName)
+
+	var files []string
+	err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			skip := map[string]bool{
+				".potok": true,
+				".git":   true,
+			}
+			if skip[info.Name()] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+
+		files = append(files, filepath.ToSlash(rel))
+		return nil
+	})
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			json.NewEncoder(w).Encode([]string{})
+			return
+		}
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	if files == nil {
+		files = []string{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(files)
 }

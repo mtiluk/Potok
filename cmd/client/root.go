@@ -27,5 +27,6 @@ func init() {
 	rootCmd.AddCommand(doctorCmd)
 	rootCmd.AddCommand(remoteListCmd)
 	rootCmd.AddCommand(pushCmd)
+	rootCmd.AddCommand(pullCmd)
 	rootCmd.SilenceErrors = true
 }

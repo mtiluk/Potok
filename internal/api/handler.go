@@ -18,10 +18,11 @@ func StartServer() {
 	// Vaults
 	api.HandleFunc("/vaults", listVaults).Methods("GET")
 	api.HandleFunc("/vaults/{vault}", createVault).Methods("POST")
-	// api.HandleFunc("/vaults/{vault}/files/{filepath:.*}", downloadFile).Methods("GET")
+	api.HandleFunc("/vaults/{vault}/files/{filePath:.+}", downloadFile).Methods("GET")
+	api.HandleFunc("/vaults/{vault}/files", listFiles).Methods("GET")
 	api.HandleFunc("/vaults/{vault}/files/{filePath:.+}", uploadFile).Methods("POST")
+
 	// Files
-	// api.HandleFunc("/users/{user}/vaults/{vault}/files", handleListVaultFiles).Methods("GET")
 
 	// Authenticated user info
 	api.HandleFunc("/me", handleMe).Methods("GET")
