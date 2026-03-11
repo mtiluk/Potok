@@ -143,7 +143,7 @@ Passwords and API keys are stored in your OS keyring under the `potok` service �
 - [x] CLI skeleton and local vault management
 - [x] OS keyring integration for passwords and API keys
 - [x] Push — encrypt and upload vaults
-- [ ] Pull — download and decrypt vaults
+- [x] Pull — download and decrypt vaults
 - [ ] Automatic file watching and sync
 - [ ] File-level sync (currently uploads entire vault)
 - [ ] Conflict detection and handling
