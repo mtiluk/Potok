@@ -85,34 +85,25 @@ var pushCmd = &cobra.Command{
 			cmd.Println("Created remote vault:", vaultName)
 		}
 
-		// // Fetch salt from server, or generate + upload if first push
-		// TODO IMPLEMENT LATER
-		// salt, err := c.DownloadFile(vaultName, ".potok/salt")
-		// if err != nil {
-		// 	salt, err = crypto.GenerateSalt()
-		// 	if err != nil {
-		// 		return fmt.Errorf("generate salt: %w", err)
-		// 	}
-
-		// 	if err := c.UploadFile(vaultName, ".potok/salt", salt); err != nil {
-		// 		return fmt.Errorf("upload salt: %w", err)
-		// 	}
-
-		// 	cmd.Println("Generated new encryption salt")
-		// }
-
-		salt, err := crypto.GenerateSalt()
+		salt, err := c.DownloadFile(vaultName, ".potok/salt")
 		if err != nil {
-			return fmt.Errorf("generate salt: %w", err)
+			salt, err = crypto.GenerateSalt()
+			if err != nil {
+				return fmt.Errorf("generate salt: %w", err)
+			}
+
+			if err := c.UploadFile(vaultName, ".potok/salt", salt); err != nil {
+				return fmt.Errorf("upload salt: %w", err)
+			}
+
+			cmd.Println("Generated new encryption salt")
 		}
 
-		// // Derive key once
 		key, err := crypto.DeriveKey([]byte(vaultPassword), salt)
 		if err != nil {
 			return fmt.Errorf("derive key: %w", err)
 		}
 
-		// Collect files
 		files, err := client.WalkVault(vaultPath)
 		if err != nil {
 			return fmt.Errorf("walk vault: %w", err)
@@ -123,7 +114,6 @@ var pushCmd = &cobra.Command{
 			return nil
 		}
 
-		// Encrypt and upload each file
 		for _, relPath := range files {
 			absPath := filepath.Join(vaultPath, relPath)
 

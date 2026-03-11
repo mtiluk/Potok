@@ -17,7 +17,6 @@ const (
 	keyLen    = 32 // AES-256
 )
 
-// GenerateSalt returns a cryptographically random 16-byte salt.
 func GenerateSalt() ([]byte, error) {
 	salt := make([]byte, SaltSize)
 	if _, err := rand.Read(salt); err != nil {
@@ -26,14 +25,10 @@ func GenerateSalt() ([]byte, error) {
 	return salt, nil
 }
 
-// DeriveKey derives a 32-byte AES-256 key from a password and salt
-// using scrypt. Called once per push/pull, not per file.
 func DeriveKey(password, salt []byte) ([]byte, error) {
 	return scrypt.Key(password, salt, 1<<15, 8, 1, keyLen)
 }
 
-// EncryptBytes encrypts plaintext with a pre-derived key.
-// Output: nonce (12B) || ciphertext
 func EncryptBytes(key, plaintext []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -54,8 +49,6 @@ func EncryptBytes(key, plaintext []byte) ([]byte, error) {
 	return append(nonce, ciphertext...), nil
 }
 
-// EncryptFile reads a file and encrypts it with a pre-derived key.
-// Output: nonce (12B) || ciphertext
 func EncryptFile(key []byte, inputPath string) ([]byte, error) {
 	f, err := os.Open(inputPath)
 	if err != nil {

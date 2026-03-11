@@ -76,6 +76,8 @@ func WalkVault(root string) ([]string, error) {
 			skip := map[string]bool{
 				".potok": true,
 				".git":   true,
+				// ".obsidian": true,
+				// ".trash":    true,
 			}
 
 			if skip[info.Name()] {
@@ -149,3 +151,50 @@ func (c *Client) UploadFile(vault, relPath string, data []byte) error {
 
 // 	return nil
 // }
+
+func (c *Client) ListFiles(vault string) ([]string, error) {
+	resp, err := c.request(http.MethodGet, "/vaults/"+vault+"/files", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("list files: %s (status %d)", string(body), resp.StatusCode)
+	}
+
+	var files []string
+	if err := json.NewDecoder(resp.Body).Decode(&files); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	return files, nil
+}
+
+func (c *Client) DownloadFile(vault, relPath string) ([]byte, error) {
+	encodedPath := url.PathEscape(relPath)
+	encodedPath = strings.ReplaceAll(encodedPath, "%2F", "/")
+
+	resp, err := c.request(
+		http.MethodGet,
+		"/vaults/"+vault+"/files/"+encodedPath,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("download: %s (status %d)", string(body), resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read body: %w", err)
+	}
+
+	return data, nil
+}

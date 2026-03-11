@@ -6,8 +6,6 @@ import (
 	"fmt"
 )
 
-// DecryptBytes decrypts data produced by EncryptBytes.
-// Input: nonce (12B) || ciphertext
 func DecryptBytes(key, data []byte) ([]byte, error) {
 	if len(data) < nonceSize {
 		return nil, fmt.Errorf("ciphertext too short")
