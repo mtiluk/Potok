@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -62,27 +61,14 @@ var initCmd = &cobra.Command{
 		}
 		cmd.Println()
 
-		resp, err := client.MakeAuthenticatedRequest(apiKey, url+"/me")
+		client := client.NewClient(url, apiKey)
+
+		me, err := client.GetMe()
 		if err != nil {
-			return fmt.Errorf("authenticate with server: %w", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != 200 {
-			return fmt.Errorf(
-				"authentication failed (status %d): check API key and ensure the server is running",
-				resp.StatusCode,
-			)
+			return err
 		}
 
-		var me struct {
-			Username string `json:"username"`
-			ID       int    `json:"id"`
-		}
-
-		if err := json.NewDecoder(resp.Body).Decode(&me); err != nil {
-			return fmt.Errorf("decode /me response: %w", err)
-		}
+		fmt.Printf("Authenticated as %s\n", me.Username)
 
 		style.Green.Fprintln(cmd.OutOrStdout(), "✔ Authentication successful!")
 

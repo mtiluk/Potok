@@ -19,7 +19,6 @@ func StartServer() {
 	api.HandleFunc("/vaults", listVaults).Methods("GET")
 
 	// Vaults
-	// api.HandleFunc("/users/{user}/vaults", handleVaults)
 	// api.HandleFunc("/users/{user}/vaults/{vault}", handlePostVault).Methods("POST")
 	// api.HandleFunc("/users/{user}/vaults/{vault}", handleDeleteVault).Methods("DELETE")
 
@@ -29,7 +28,7 @@ func StartServer() {
 	// api.HandleFunc("/users/{user}/vaults/{vault}/files/{filepath:.*}", handleUploadFile).Methods("POST")
 
 	// Authenticated user info
-	// api.HandleFunc("/me", handleMe).Methods("GET")
+	api.HandleFunc("/me", handleMe).Methods("GET")
 
 	log.Println("Starting server on :8080")
 	http.ListenAndServe(":8080", r)
@@ -181,30 +180,6 @@ func extractAPIKey(r *http.Request) string {
 // 	}
 
 // 	w.WriteHeader(http.StatusCreated)
-// }
-
-// // handleMe returns information about the authenticated user.
-// func handleMe(w http.ResponseWriter, r *http.Request) {
-// 	w.Header().Set("Content-Type", "application/json")
-
-// 	user, err := database.FindByAPIKey(r.Header.Get("Authorization"))
-// 	if err != nil {
-// 		http.Error(w, "Unauthorized: invalid API key", http.StatusUnauthorized)
-// 		return
-// 	}
-
-// 	resp := struct {
-// 		Username string `json:"username"`
-// 		ID       int    `json:"id"`
-// 	}{
-// 		Username: user.Username,
-// 		ID:       user.Id,
-// 	}
-
-// 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-// 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-// 		return
-// 	}
 // }
 
 // // handleListVaultFiles returns a JSON array of all file paths in the specified vault for the authenticated user.
