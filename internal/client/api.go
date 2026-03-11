@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -34,5 +35,16 @@ func (c *Client) request(method, path string, body io.Reader) (*http.Response, e
 	}
 
 	req.Header.Set("Authorization", c.APIKey)
+	return c.HTTPClient.Do(req)
+}
+
+func (c *Client) requestMultipart(method, path string, body *bytes.Buffer, contentType string) (*http.Response, error) {
+	req, err := http.NewRequest(method, c.BaseURL+path, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", c.APIKey)
+	req.Header.Set("Content-Type", contentType)
+
 	return c.HTTPClient.Do(req)
 }

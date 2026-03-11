@@ -6,34 +6,25 @@ import (
 	"fmt"
 )
 
-func DecryptBytes(password string, data []byte) ([]byte, error) {
-	if len(data) < saltSize+nonceSize {
-		return nil, fmt.Errorf("file too short")
-	}
-
-	salt := data[:saltSize]
-	nonce := data[saltSize : saltSize+nonceSize]
-	ciphertext := data[saltSize+nonceSize:]
-
-	key, err := DeriveKey([]byte(password), salt)
-	if err != nil {
-		return nil, err
+// DecryptBytes decrypts data produced by EncryptBytes.
+// Input: nonce (12B) || ciphertext
+func DecryptBytes(key, data []byte) ([]byte, error) {
+	if len(data) < nonceSize {
+		return nil, fmt.Errorf("ciphertext too short")
 	}
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new cipher: %w", err)
 	}
 
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new gcm: %w", err)
 	}
 
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		return nil, err
-	}
+	nonce := data[:nonceSize]
+	ciphertext := data[nonceSize:]
 
-	return plaintext, nil
+	return gcm.Open(nil, nonce, ciphertext, nil)
 }

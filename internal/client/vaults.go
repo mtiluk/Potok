@@ -1,9 +1,16 @@
 package client
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -33,3 +40,112 @@ func (c *Client) ListVaults() ([]Vault, error) {
 
 	return vaults, nil
 }
+
+func (c *Client) CreateVault(name string) (bool, error) {
+	resp, err := c.request("POST", "/vaults/"+name, nil)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusCreated {
+		return true, nil
+	}
+
+	if resp.StatusCode == http.StatusConflict {
+		return false, nil
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	return false, fmt.Errorf(
+		"create vault: %s (status %d)",
+		string(body),
+		resp.StatusCode,
+	)
+}
+
+func WalkVault(root string) ([]string, error) {
+	var files []string
+
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			skip := map[string]bool{
+				".potok": true,
+				".git":   true,
+			}
+
+			if skip[info.Name()] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+
+		rel = filepath.ToSlash(rel)
+		files = append(files, rel)
+		return nil
+	})
+
+	return files, err
+
+}
+
+func (c *Client) UploadFile(vault, relPath string, data []byte) error {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	part, err := writer.CreateFormFile("file", filepath.Base(relPath))
+	if err != nil {
+		return fmt.Errorf("create form file: %w", err)
+	}
+
+	if _, err := part.Write(data); err != nil {
+		return fmt.Errorf("write data: %w", err)
+	}
+	writer.Close()
+
+	encodedPath := url.PathEscape(relPath)
+	encodedPath = strings.ReplaceAll(encodedPath, "%2F", "/")
+
+	resp, err := c.requestMultipart(
+		"POST",
+		"/vaults/"+vault+"/files/"+encodedPath,
+		body,
+		writer.FormDataContentType(),
+	)
+	if err != nil {
+		return fmt.Errorf("upload request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("upload failed: %s (status %d)", string(respBody), resp.StatusCode)
+	}
+
+	return nil
+}
+
+// func (c *Client) UploadVault(vault, root string) error {
+// 	files, err := WalkVault(root)
+// 	if err != nil {
+// 		return fmt.Errorf("walk vault: %w", err)
+// 	}
+
+// 	for _, file := range files {
+// 		fmt.Printf("Uploading %s...\n", file)
+// 		if err := c.UploadFile(vault, file, root); err != nil {
+// 			return fmt.Errorf("upload %s: %w", file, err)
+// 		}
+// 	}
+
+// 	return nil
+// }

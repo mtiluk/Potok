@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"fmt"
 	"io"
 	"os"
 
@@ -11,103 +12,61 @@ import (
 )
 
 const (
-	saltSize  = 16
+	SaltSize  = 16
 	nonceSize = 12
 	keyLen    = 32 // AES-256
 )
 
-// Takes the 'password' from the user (currently hardcoded)
-// Takes the generated 'salt' based on saltSize random integers
-// The numbers I don't really understand
-// Maximum length of key being a 32 byte string (256 bits)
+// GenerateSalt returns a cryptographically random 16-byte salt.
+func GenerateSalt() ([]byte, error) {
+	salt := make([]byte, SaltSize)
+	if _, err := rand.Read(salt); err != nil {
+		return nil, fmt.Errorf("generate salt: %w", err)
+	}
+	return salt, nil
+}
+
+// DeriveKey derives a 32-byte AES-256 key from a password and salt
+// using scrypt. Called once per push/pull, not per file.
 func DeriveKey(password, salt []byte) ([]byte, error) {
 	return scrypt.Key(password, salt, 1<<15, 8, 1, keyLen)
 }
 
-// EncryptFile encrypts the input file and writes the result to output file.
-func EncryptFile(password, inputPath string) ([]byte, error) {
-
-	// Read entire file and store it in 'plainText'
-	f, err := os.Open(inputPath)
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := io.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-
-	// Initialises variable 'salt' to `saltSize` of 0's
-	salt := make([]byte, saltSize)
-	// Uses `rand.Read` to initialise each 0 to a random number
-	// Which is completely random each time
-	if _, err := rand.Read(salt); err != nil {
-		return nil, err
-	}
-
-	key, err := DeriveKey([]byte(password), salt)
-	if err != nil {
-		return nil, err
-	}
-
+// EncryptBytes encrypts plaintext with a pre-derived key.
+// Output: nonce (12B) || ciphertext
+func EncryptBytes(key, plaintext []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new cipher: %w", err)
 	}
 
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new gcm: %w", err)
 	}
 
 	nonce := make([]byte, nonceSize)
 	if _, err := rand.Read(nonce); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generate nonce: %w", err)
 	}
 
-	ciphertext := gcm.Seal(nil, nonce, data, nil)
-
-	// Output: salt | nonce | ciphertext
-	out := append(salt, nonce...)
-	out = append(out, ciphertext...)
-
-	return out, nil
+	ciphertext := gcm.Seal(nil, nonce, plaintext, nil)
+	return append(nonce, ciphertext...), nil
 }
 
-// func main() {
-// 	// Grab vault name (potok will always be the service)
-// 	service := "potok"
-// 	user := "my-vaults"
+// EncryptFile reads a file and encrypts it with a pre-derived key.
+// Output: nonce (12B) || ciphertext
+func EncryptFile(key []byte, inputPath string) ([]byte, error) {
+	f, err := os.Open(inputPath)
+	if err != nil {
+		return nil, fmt.Errorf("open file: %w", err)
+	}
+	defer f.Close()
 
-// 	// Take in password from user
-// 	var password string
-// 	fmt.Scan(&password)
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return nil, fmt.Errorf("read file: %w", err)
+	}
 
-// 	// Store password in the keyring service
-// 	err := keyring.Set(service, user, password)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	secret, err := keyring.Get(service, user)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	// Call the EncryptFile
-// 	err = EncryptFile(secret, "plain.txt", "encrypted.txt")
-// 	if err != nil {
-// 		fmt.Println("Encryption error:", err)
-// 		return
-// 	}
-// 	fmt.Println("File encrypted.")
-
-// 	// Instantly DecryptFile
-// 	err = DecryptFile(secret, "encrypted.txt", "decrypted.txt")
-// 	if err != nil {
-// 		fmt.Println("Decryption error:", err)
-// 		return
-// 	}
-// 	fmt.Println("File decrypted.")
-// }
+	return EncryptBytes(key, data)
+}
