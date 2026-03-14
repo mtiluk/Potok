@@ -28,5 +28,6 @@ func init() {
 	rootCmd.AddCommand(remoteListCmd)
 	rootCmd.AddCommand(pushCmd)
 	rootCmd.AddCommand(pullCmd)
+	rootCmd.AddCommand(daemonCmd)
 	rootCmd.SilenceErrors = true
 }

@@ -252,3 +252,52 @@ func listFiles(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(files)
 }
+
+func deleteFile(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	vault := vars["vault"]
+	filePath := vars["filePath"]
+
+	apiKey := extractAPIKey(r)
+	user, err := database.AuthenticateByKey(apiKey)
+	if err != nil {
+		http.Error(w, "Invalid API Key", http.StatusUnauthorized)
+		return
+	}
+
+	fullPath := filepath.Join("uploads", fmt.Sprintf("%d", user.Id), vault, filePath)
+
+	absPath, err := filepath.Abs(fullPath)
+	if err != nil {
+		http.Error(w, "invalid path", http.StatusBadRequest)
+		return
+	}
+
+	safeBase, _ := filepath.Abs(filepath.Join("uploads", fmt.Sprintf("%d", user.Id), vault))
+	if !strings.HasPrefix(absPath, safeBase) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		http.Error(w, "file not found", http.StatusNotFound)
+		return
+	}
+
+	if err := os.Remove(fullPath); err != nil {
+		http.Error(w, "failed to delete file", http.StatusInternalServerError)
+		return
+	}
+
+	dir := filepath.Dir(fullPath)
+	for dir != safeBase {
+		entries, err := os.ReadDir(dir)
+		if err != nil || len(entries) > 0 {
+			break
+		}
+		os.Remove(dir)
+		dir = filepath.Dir(dir)
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
