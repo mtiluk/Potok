@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/michaeltukdev/Potok/internal/database"
@@ -300,4 +302,71 @@ func deleteFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func getManifest(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	vault := vars["vault"]
+
+	apiKey := extractAPIKey(r)
+	user, err := database.AuthenticateByKey(apiKey)
+	if err != nil {
+		http.Error(w, "Invalid API Key", http.StatusUnauthorized)
+		return
+	}
+
+	vaultRoot := filepath.Join(
+		"uploads",
+		fmt.Sprintf("%d", user.Id),
+		vault,
+	)
+
+	if _, err := os.Stat(vaultRoot); os.IsNotExist(err) {
+		http.Error(w, "vault not found", http.StatusNotFound)
+		return
+	}
+
+	type FileInfo struct {
+		Size    int64  `json:"size"`
+		ModTime string `json:"mod_time"`
+	}
+
+	manifest := make(map[string]FileInfo)
+
+	err = filepath.WalkDir(vaultRoot, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if d.Name() == ".potok" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		rel, err := filepath.Rel(vaultRoot, path)
+		if err != nil {
+			return nil
+		}
+		rel = filepath.ToSlash(rel)
+
+		info, err := d.Info()
+		if err != nil {
+			return nil
+		}
+
+		manifest[rel] = FileInfo{
+			Size:    info.Size(),
+			ModTime: info.ModTime().UTC().Format(time.RFC3339),
+		}
+		return nil
+	})
+
+	if err != nil {
+		http.Error(w, "failed to walk vault", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(manifest)
 }
