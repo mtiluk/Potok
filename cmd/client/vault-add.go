@@ -10,24 +10,6 @@ import (
 	"github.com/zalando/go-keyring"
 )
 
-// func WalkVaultDir(vaultRoot string) ([]string, error) {
-// 	var files []string
-// 	err := filepath.WalkDir(vaultRoot, func(path string, d fs.DirEntry, err error) error {
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if !d.IsDir() {
-// 			rel, err := filepath.Rel(vaultRoot, path)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			files = append(files, rel)
-// 		}
-// 		return nil
-// 	})
-// 	return files, err
-// }
-
 //
 // potok vault add - Register a local folder as a vault and store its encryption
 // password in the OS keyring.
@@ -60,7 +42,6 @@ var addVaultCmd = &cobra.Command{
 		style.Bold.Fprintln(cmd.OutOrStdout(), "Registering vault...")
 		cmd.Println()
 
-		// 1. Vault name
 		vaultName, err := prompt.PromptVaultName()
 		if err != nil {
 			return fmt.Errorf("vault name error: %w", err)
@@ -70,7 +51,6 @@ var addVaultCmd = &cobra.Command{
 			return fmt.Errorf("vault %q is already registered", vaultName)
 		}
 
-		// 2. Vault path
 		style.Dim.Print("Select vault path: ")
 		vaultPath, err := prompt.SelectVaultPath()
 		if err != nil {
@@ -78,7 +58,6 @@ var addVaultCmd = &cobra.Command{
 		}
 		fmt.Println(vaultPath)
 
-		// 3. Encryption password
 		vaultPassword, err := prompt.Secret(style.Dim.Sprint("Vault password (input hidden): "))
 		if err != nil {
 			return fmt.Errorf("read vault password: %w", err)
@@ -97,13 +76,11 @@ var addVaultCmd = &cobra.Command{
 			return fmt.Errorf("passwords do not match")
 		}
 
-		// 4. Store password in OS keyring
 		keyringUser := "vault:" + vaultName
 		if err := keyring.Set("potok", keyringUser, vaultPassword); err != nil {
 			return fmt.Errorf("failed to store password in keyring: %w", err)
 		}
 
-		// 5. Save vault mapping to config
 		cfg.AddVault(config.VaultInfo{
 			Name: vaultName,
 			Path: vaultPath,

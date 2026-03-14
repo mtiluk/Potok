@@ -198,3 +198,28 @@ func (c *Client) DownloadFile(vault, relPath string) ([]byte, error) {
 
 	return data, nil
 }
+
+func (c *Client) DeleteFile(vault, relPath string) error {
+	encodedPath := url.PathEscape(relPath)
+	encodedPath = strings.ReplaceAll(encodedPath, "%2F", "/")
+
+	resp, err := c.request(
+		http.MethodDelete,
+		"/vaults/"+vault+"/files/"+encodedPath,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("delete request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK &&
+		resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("delete failed: %s (status %d)",
+			string(body), resp.StatusCode,
+		)
+	}
+
+	return nil
+}

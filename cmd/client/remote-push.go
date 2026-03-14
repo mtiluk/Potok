@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/michaeltukdev/Potok/internal/client"
 	"github.com/michaeltukdev/Potok/internal/config"
@@ -131,11 +132,10 @@ var pushCmd = &cobra.Command{
 			cmd.Printf("  ✓ %s\n", relPath)
 		}
 
-		// // // Update config
-		// // cfg.UpdateLastSynced(vaultName, time.Now().Format(time.RFC3339))
-		// // if err := cfg.Save(); err != nil {
-		// // 	return fmt.Errorf("save config: %w", err)
-		// // }
+		cfg.UpdateLastSynced(vaultName, time.Now().Format(time.RFC3339))
+		if err := cfg.Save(); err != nil {
+			return fmt.Errorf("save config: %w", err)
+		}
 
 		cmd.Printf("\nPushed %d files to %q\n", len(files), vaultName)
 		return nil
