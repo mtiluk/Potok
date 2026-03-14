@@ -15,7 +15,6 @@ func StartServer() {
 	api := r.PathPrefix("/").Subrouter()
 	api.Use(middleware.ApiMiddleware)
 
-	// Vaults
 	api.HandleFunc("/vaults", listVaults).Methods("GET")
 	api.HandleFunc("/vaults/{vault}", createVault).Methods("POST")
 	api.HandleFunc("/vaults/{vault}/files/{filePath:.+}", downloadFile).Methods("GET")
@@ -23,7 +22,8 @@ func StartServer() {
 	api.HandleFunc("/vaults/{vault}/files/{filePath:.+}", uploadFile).Methods("POST")
 	api.HandleFunc("/vaults/{vault}/files/{filePath:.+}", deleteFile).Methods("DELETE")
 
-	// Authenticated user info
+	api.HandleFunc("/vaults/{vault}/manifest", getManifest).Methods("GET")
+
 	api.HandleFunc("/me", handleMe).Methods("GET")
 
 	log.Println("Starting server on :8080")
