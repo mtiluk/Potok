@@ -23,8 +23,8 @@ func InitDB(dataSourceName string) (*sql.DB, error) {
 	return DB, DB.Ping()
 }
 
-func RunMigrations(db *sql.DB) error {
-	migrationsPath, err := filepath.Abs("../../migrations")
+func RunMigrations(db *sql.DB, migrationsPath string) error {
+	absPath, err := filepath.Abs(migrationsPath)
 	if err != nil {
 		return err
 	}
@@ -33,7 +33,7 @@ func RunMigrations(db *sql.DB) error {
 		return err
 	}
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://"+migrationsPath,
+		"file://"+absPath,
 		"sqlite3", driver)
 	if err != nil {
 		return err
