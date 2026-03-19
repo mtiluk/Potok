@@ -85,8 +85,15 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 	defer watcher.Close()
 
+	guard := potoksync.NewPullGuard()
+
+	manifest, err := potoksync.LoadManifest(vaultName)
+	if err != nil {
+		return fmt.Errorf("load manifest: %w", err)
+	}
+
 	handler := potoksync.NewEventHandler(
-		vaultName, vaultPath, c, encKey, logger,
+		vaultName, vaultPath, c, encKey, guard, manifest, logger,
 	)
 
 	fmt.Printf("Syncing vault %q at %s\n", vaultName, vaultPath)

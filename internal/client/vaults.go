@@ -22,6 +22,11 @@ type Vault struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type RemoteFileInfo struct {
+	Size    int64  `json:"size"`
+	ModTime string `json:"mod_time"`
+}
+
 func (c *Client) ListVaults() ([]Vault, error) {
 	resp, err := c.request(http.MethodGet, "/vaults", nil)
 	if err != nil {
@@ -222,4 +227,27 @@ func (c *Client) DeleteFile(vault, relPath string) error {
 	}
 
 	return nil
+}
+
+func (c *Client) GetManifest(vault string) (map[string]RemoteFileInfo, error) {
+	resp, err := c.request(http.MethodGet, "/vaults/"+vault+"/manifest", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf(
+			"get manifest: %s (status %d)",
+			string(body), resp.StatusCode,
+		)
+	}
+
+	var manifest map[string]RemoteFileInfo
+	if err := json.NewDecoder(resp.Body).Decode(&manifest); err != nil {
+		return nil, fmt.Errorf("decode manifest: %w", err)
+	}
+
+	return manifest, nil
 }

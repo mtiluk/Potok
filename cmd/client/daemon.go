@@ -18,6 +18,8 @@ import (
 	"github.com/zalando/go-keyring"
 )
 
+var pollInterval time.Duration
+
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "Watch and sync all registered vaults simultaneously",
@@ -26,13 +28,17 @@ var daemonCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(daemonCmd)
+	daemonCmd.Flags().DurationVar(
+		&pollInterval, "interval", 30*time.Second,
+		"How often to poll the server for remote changes",
+	)
 }
 
 type vaultSyncer struct {
 	name    string
 	watcher *potoksync.Watcher
 	handler *potoksync.EventHandler
+	poller  *potoksync.Poller
 }
 
 func runDaemon(cmd *cobra.Command, args []string) error {
@@ -73,6 +79,11 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
+		vlog.Info("salt downloaded",
+			"len", len(salt),
+			"hex", fmt.Sprintf("%x", salt),
+		)
+
 		encKey, err := crypto.DeriveKey([]byte(password), salt)
 		if err != nil {
 			vlog.Error("derive key failed", "err", err)
@@ -81,6 +92,14 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 
 		if _, err := os.Stat(vault.Path); os.IsNotExist(err) {
 			vlog.Error("vault path does not exist", "path", vault.Path)
+			continue
+		}
+
+		guard := potoksync.NewPullGuard()
+
+		manifest, err := potoksync.LoadManifest(vault.Name)
+		if err != nil {
+			vlog.Error("load manifest failed", "err", err)
 			continue
 		}
 
@@ -93,13 +112,23 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 		}
 
 		handler := potoksync.NewEventHandler(
-			vault.Name, vault.Path, c, encKey, vlog,
+			vault.Name, vault.Path, c, encKey, guard, manifest, vlog,
 		)
+
+		poller, err := potoksync.NewPoller(
+			vault.Name, vault.Path, c, encKey, guard, vlog,
+		)
+		if err != nil {
+			vlog.Error("create poller failed", "err", err)
+			watcher.Close()
+			continue
+		}
 
 		syncers = append(syncers, vaultSyncer{
 			name:    vault.Name,
 			watcher: watcher,
 			handler: handler,
+			poller:  poller,
 		})
 
 		vlog.Info("watching", "path", vault.Path)
@@ -109,20 +138,30 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no vaults could be initialised")
 	}
 
-	fmt.Printf("Potok daemon started — watching %d vault(s)\n", len(syncers))
+	fmt.Printf(
+		"Potok daemon started — watching %d vault(s), polling every %s\n",
+		len(syncers), pollInterval,
+	)
 	fmt.Println("Press Ctrl+C to stop.")
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 	var wg gosync.WaitGroup
+	var cfgMu gosync.Mutex
 	stopCh := make(chan struct{})
 
 	for _, s := range syncers {
 		s := s
 
-		go s.watcher.Start()
+		// Tracked watcher goroutine
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s.watcher.Start()
+		}()
 
+		// Event processing goroutine
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -136,12 +175,13 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 					}
 					s.handler.HandleBatch(batch)
 
+					cfgMu.Lock()
 					cfg.UpdateLastSynced(
 						s.name,
 						time.Now().Format(time.RFC3339),
 					)
 					_ = cfg.Save()
-
+					cfgMu.Unlock()
 				case err, ok := <-s.watcher.Errors:
 					if !ok {
 						return
@@ -149,6 +189,25 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 					logger.Error("watcher error",
 						"vault", s.name, "err", err,
 					)
+				}
+			}
+		}()
+
+		// Poll goroutine
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ticker := time.NewTicker(pollInterval)
+			defer ticker.Stop()
+
+			s.poller.Poll()
+
+			for {
+				select {
+				case <-stopCh:
+					return
+				case <-ticker.C:
+					s.poller.Poll()
 				}
 			}
 		}()
