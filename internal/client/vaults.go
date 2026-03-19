@@ -141,22 +141,6 @@ func (c *Client) UploadFile(vault, relPath string, data []byte) error {
 	return nil
 }
 
-// func (c *Client) UploadVault(vault, root string) error {
-// 	files, err := WalkVault(root)
-// 	if err != nil {
-// 		return fmt.Errorf("walk vault: %w", err)
-// 	}
-
-// 	for _, file := range files {
-// 		fmt.Printf("Uploading %s...\n", file)
-// 		if err := c.UploadFile(vault, file, root); err != nil {
-// 			return fmt.Errorf("upload %s: %w", file, err)
-// 		}
-// 	}
-
-// 	return nil
-// }
-
 func (c *Client) ListFiles(vault string) ([]string, error) {
 	resp, err := c.request(http.MethodGet, "/vaults/"+vault+"/files", nil)
 	if err != nil {

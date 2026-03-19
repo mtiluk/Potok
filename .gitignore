@@ -1,4 +1,4 @@
 *.db
 /data
-/cmd/server/uploads
+/uploads
 .env
