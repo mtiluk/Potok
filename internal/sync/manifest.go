@@ -1,4 +1,3 @@
-// internal/sync/manifest.go
 package sync
 
 import (
