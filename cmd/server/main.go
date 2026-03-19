@@ -11,16 +11,9 @@ import (
 )
 
 func main() {
-	db, err := database.InitDB("potok.db")
+	err := godotenv.Load()
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println("Database running...")
-
-	err = godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Println("No .env file found, using environment variables")
 	}
 
 	migrationsPath := os.Getenv("MIGRATIONS_PATH")
@@ -28,12 +21,29 @@ func main() {
 		migrationsPath = "./migrations"
 	}
 
+	dbPath := os.Getenv("DATABASE_PATH")
+	if dbPath == "" {
+		dbPath = "./potok.db"
+	}
+
+	db, err := database.InitDB(dbPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Database running...")
+
 	if err := database.RunMigrations(db, migrationsPath); err != nil {
 		log.Fatal("Failed to run migrations:", err)
 	}
 
 	fmt.Println("Migrations completed...")
 
-	fmt.Println("Starting HTTP server on :8080")
-	api.StartServer()
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	fmt.Printf("Starting HTTP server on :%s\n", port)
+	api.StartServer(port)
 }

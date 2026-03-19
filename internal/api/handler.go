@@ -9,7 +9,7 @@ import (
 	"github.com/michaeltukdev/Potok/internal/middleware"
 )
 
-func StartServer() {
+func StartServer(port string) {
 	r := mux.NewRouter()
 
 	api := r.PathPrefix("/").Subrouter()
@@ -26,8 +26,8 @@ func StartServer() {
 
 	api.HandleFunc("/me", handleMe).Methods("GET")
 
-	log.Println("Starting server on :8080")
-	http.ListenAndServe(":8080", r)
+	log.Printf("Starting server on :%s\n", port)
+	http.ListenAndServe(":"+port, r)
 }
 
 func extractAPIKey(r *http.Request) string {

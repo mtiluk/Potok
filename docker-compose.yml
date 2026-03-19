@@ -4,7 +4,10 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
-    environment:
-      - PORT=8080
+      - "${PORT}:${PORT}"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ${STORAGE_PATH:-./uploads}:/app/uploads
     restart: unless-stopped

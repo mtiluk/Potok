@@ -16,6 +16,14 @@ import (
 	"github.com/michaeltukdev/Potok/internal/database"
 )
 
+func getStoragePath() string {
+	path := os.Getenv("STORAGE_PATH")
+	if path == "" {
+		path = "./uploads"
+	}
+	return path
+}
+
 func listVaults(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -100,7 +108,7 @@ func downloadFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	absPath := filepath.Join(
-		"./uploads",
+		getStoragePath(),
 		strconv.Itoa(user.Id),
 		vaultName,
 		cleanPath,
@@ -163,7 +171,7 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	dstPath := filepath.Join(
-		"./uploads",
+		getStoragePath(),
 		strconv.Itoa(user.Id),
 		vaultName,
 		cleanPath,
@@ -211,7 +219,7 @@ func listFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	root := filepath.Join("./uploads", strconv.Itoa(user.Id), vaultName)
+	root := filepath.Join(getStoragePath(), strconv.Itoa(user.Id), vaultName)
 
 	var files []string
 	err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
@@ -267,7 +275,13 @@ func deleteFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fullPath := filepath.Join("uploads", fmt.Sprintf("%d", user.Id), vault, filePath)
+	storagePath := getStoragePath()
+	fullPath := filepath.Join(
+		storagePath,
+		fmt.Sprintf("%d", user.Id),
+		vault,
+		filePath,
+	)
 
 	absPath, err := filepath.Abs(fullPath)
 	if err != nil {
@@ -275,7 +289,9 @@ func deleteFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	safeBase, _ := filepath.Abs(filepath.Join("uploads", fmt.Sprintf("%d", user.Id), vault))
+	safeBase, _ := filepath.Abs(
+		filepath.Join(storagePath, fmt.Sprintf("%d", user.Id), vault),
+	)
 	if !strings.HasPrefix(absPath, safeBase) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
@@ -316,7 +332,7 @@ func getManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	vaultRoot := filepath.Join(
-		"uploads",
+		getStoragePath(),
 		fmt.Sprintf("%d", user.Id),
 		vault,
 	)
