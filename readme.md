@@ -5,6 +5,8 @@
 
 **Potok** is a self-hosted, CLI-based tool for backing up and syncing [Obsidian](https://obsidian.md/) vaults with end-to-end encryption. Your notes stay yours — the server never sees your passwords or unencrypted data.
 
+For more detail, check out the docs [Potok Docs](https://potok-docs.vercel.app/)
+
 ## Features
 
 - **End-to-End Encryption** — Vaults are encrypted locally before leaving your device. The server only stores encrypted data.
