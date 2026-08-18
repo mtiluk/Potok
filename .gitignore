@@ -1,4 +1,13 @@
-*.db
-/data
-/uploads
+/bin/
+/dist/
+/potok
+/potokd
+coverage.out
+*.test
 .env
+.env.local
+/data/
+*.db
+.vscode/
+.idea/
+.DS_Store
