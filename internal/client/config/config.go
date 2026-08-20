@@ -14,8 +14,10 @@ import (
 
 var ErrNotFound = errors.New("config: not initialised, run `potok init`")
 
-const maxVaultNameLen = 64
-const invalidNameChars = `/\:*?"<>|` + " "
+const (
+	maxVaultNameLen  = 64
+	invalidNameChars = `/\:*?"<>|` + " "
+)
 
 type Config struct {
 	ServerURL string  `json:"server_url"`
@@ -28,18 +30,6 @@ type Vault struct {
 	RemoteID     string     `json:"remote_id,omitempty"`
 	LastSyncedAt *time.Time `json:"last_synced_at,omitempty"`
 }
-
-type Store interface {
-	Load() (*Config, error)
-	Save(cfg *Config) error
-	Path() string
-}
-
-type FileStore struct {
-	Dir string
-}
-
-var _ Store = (*FileStore)(nil)
 
 func Dir() (string, error) {
 	if dir := os.Getenv("POTOK_CONFIG_DIR"); dir != "" {
@@ -55,20 +45,20 @@ func Dir() (string, error) {
 	return filepath.Join(home, ".potok"), nil
 }
 
-func (s *FileStore) Path() string {
-	dir := s.Dir
-	if dir == "" {
-		resolved, err := Dir()
-		if err != nil {
-			return "config.json"
-		}
-		dir = resolved
+func Path() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
 	}
-	return filepath.Join(dir, "config.json")
+	return filepath.Join(dir, "config.json"), nil
 }
 
-func (s *FileStore) Load() (*Config, error) {
-	path := s.Path()
+func Load() (*Config, error) {
+	path, err := Path()
+	if err != nil {
+		return nil, err
+	}
+
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, ErrNotFound
@@ -84,8 +74,12 @@ func (s *FileStore) Load() (*Config, error) {
 	return &cfg, nil
 }
 
-func (s *FileStore) Save(cfg *Config) error {
+func Save(cfg *Config) error {
 	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	path, err := Path()
+	if err != nil {
 		return err
 	}
 
@@ -95,7 +89,6 @@ func (s *FileStore) Save(cfg *Config) error {
 	}
 	data = append(data, '\n')
 
-	path := s.Path()
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("config: create %s: %w", dir, err)
@@ -107,7 +100,6 @@ func (s *FileStore) Save(cfg *Config) error {
 	}
 	tmpName := tmp.Name()
 	defer func() {
-
 		_ = tmp.Close()
 		_ = os.Remove(tmpName)
 	}()
@@ -118,7 +110,6 @@ func (s *FileStore) Save(cfg *Config) error {
 	if _, err := tmp.Write(data); err != nil {
 		return fmt.Errorf("config: write temp file: %w", err)
 	}
-
 	if err := tmp.Sync(); err != nil {
 		return fmt.Errorf("config: sync temp file: %w", err)
 	}
