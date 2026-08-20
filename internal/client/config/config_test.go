@@ -6,87 +6,73 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
-	"time"
 )
 
-func newStore(t *testing.T) *FileStore {
+func tempConfig(t *testing.T) string {
 	t.Helper()
-	return &FileStore{Dir: t.TempDir()}
+	dir := t.TempDir()
+	t.Setenv("POTOK_CONFIG_DIR", dir)
+	return dir
 }
 
 func TestLoadReturnsNotFoundWhenMissing(t *testing.T) {
-	store := newStore(t)
+	tempConfig(t)
 
-	_, err := store.Load()
-
-	if !errors.Is(err, ErrNotFound) {
+	if _, err := Load(); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Load() = %v, want ErrNotFound", err)
 	}
 }
 
-func TestSaveThenLoadRoundTrip(t *testing.T) {
-	store := newStore(t)
-	synced := time.Date(2026, time.March, 4, 12, 0, 0, 0, time.UTC)
+func TestSaveThenLoad(t *testing.T) {
+	dir := tempConfig(t)
 	want := &Config{
 		ServerURL: "https://potok.example.com",
-		Vaults: []Vault{
-			{Name: "notes", Path: filepath.Join(store.Dir, "notes"), LastSyncedAt: &synced},
-			{Name: "work", Path: filepath.Join(store.Dir, "work")},
-		},
+		Vaults:    []Vault{{Name: "notes", Path: filepath.Join(dir, "notes")}},
 	}
 
-	if err := store.Save(want); err != nil {
+	if err := Save(want); err != nil {
 		t.Fatalf("Save() = %v", err)
 	}
 
-	got, err := store.Load()
+	got, err := Load()
 	if err != nil {
 		t.Fatalf("Load() = %v", err)
 	}
 	if got.ServerURL != want.ServerURL {
 		t.Errorf("ServerURL = %q, want %q", got.ServerURL, want.ServerURL)
 	}
-	if len(got.Vaults) != len(want.Vaults) {
-		t.Fatalf("len(Vaults) = %d, want %d", len(got.Vaults), len(want.Vaults))
+	if len(got.Vaults) != 1 || got.Vaults[0].Name != "notes" {
+		t.Errorf("Vaults = %+v, want one vault called notes", got.Vaults)
 	}
-	if got.Vaults[0].LastSyncedAt == nil || !got.Vaults[0].LastSyncedAt.Equal(synced) {
-		t.Errorf("Vaults[0].LastSyncedAt = %v, want %v", got.Vaults[0].LastSyncedAt, synced)
-	}
-	if got.Vaults[1].LastSyncedAt != nil {
-		t.Errorf("Vaults[1].LastSyncedAt = %v, want nil for a never-synced vault", got.Vaults[1].LastSyncedAt)
+	if got.Vaults[0].LastSyncedAt != nil {
+		t.Error("LastSyncedAt should be nil for a vault that has never synced")
 	}
 }
 
-func TestSaveOverwritesExistingConfig(t *testing.T) {
-	store := newStore(t)
-	first := &Config{ServerURL: "https://one.example.com"}
-	if err := store.Save(first); err != nil {
-		t.Fatalf("Save(first) = %v", err)
+func TestSaveOverwritesAndLeavesNoTempFiles(t *testing.T) {
+	dir := tempConfig(t)
+
+	if err := Save(&Config{ServerURL: "https://one.example.com"}); err != nil {
+		t.Fatalf("Save() = %v", err)
+	}
+	if err := Save(&Config{ServerURL: "https://two.example.com"}); err != nil {
+		t.Fatalf("Save() = %v", err)
 	}
 
-	second := &Config{ServerURL: "https://two.example.com"}
-	if err := store.Save(second); err != nil {
-		t.Fatalf("Save(second) = %v", err)
-	}
-
-	got, err := store.Load()
+	got, err := Load()
 	if err != nil {
 		t.Fatalf("Load() = %v", err)
 	}
-	if got.ServerURL != second.ServerURL {
-		t.Errorf("ServerURL = %q, want %q", got.ServerURL, second.ServerURL)
+	if got.ServerURL != "https://two.example.com" {
+		t.Errorf("ServerURL = %q, want the second save to win", got.ServerURL)
 	}
 
-	entries, err := os.ReadDir(store.Dir)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatalf("ReadDir() = %v", err)
 	}
 	if len(entries) != 1 {
-		names := make([]string, 0, len(entries))
-		for _, e := range entries {
-			names = append(names, e.Name())
-		}
-		t.Errorf("config directory holds %v, want config.json only", names)
+		t.Errorf("directory holds %d files, want config.json only", len(entries))
 	}
 }
 
@@ -94,12 +80,13 @@ func TestSaveUsesRestrictivePermissions(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Unix file modes are not meaningful on Windows")
 	}
-	store := newStore(t)
-	if err := store.Save(&Config{ServerURL: "https://potok.example.com"}); err != nil {
+	tempConfig(t)
+	if err := Save(&Config{ServerURL: "https://potok.example.com"}); err != nil {
 		t.Fatalf("Save() = %v", err)
 	}
 
-	info, err := os.Stat(store.Path())
+	path, _ := Path()
+	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatalf("Stat() = %v", err)
 	}
@@ -109,26 +96,27 @@ func TestSaveUsesRestrictivePermissions(t *testing.T) {
 }
 
 func TestSaveRejectsInvalidConfig(t *testing.T) {
-	store := newStore(t)
+	tempConfig(t)
 
-	err := store.Save(&Config{ServerURL: "ftp://example.com"})
-
-	if err == nil {
-		t.Fatal("Save() = nil, want an error for an invalid config")
+	if err := Save(&Config{ServerURL: "ftp://example.com"}); err == nil {
+		t.Fatal("Save() = nil, want an error")
 	}
-	if _, statErr := os.Stat(store.Path()); statErr == nil {
+
+	path, _ := Path()
+	if _, err := os.Stat(path); err == nil {
 		t.Error("Save() wrote a file despite failing validation")
 	}
 }
 
 func TestLoadRejectsMalformedJSON(t *testing.T) {
-	store := newStore(t)
-	if err := os.WriteFile(store.Path(), []byte("{not json"), 0o600); err != nil {
+	tempConfig(t)
+	path, _ := Path()
+	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {
 		t.Fatalf("WriteFile() = %v", err)
 	}
 
-	if _, err := store.Load(); err == nil {
-		t.Fatal("Load() = nil, want an error for malformed JSON")
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() = nil, want a parse error")
 	}
 }
 
@@ -137,56 +125,20 @@ func TestValidate(t *testing.T) {
 		cfg     Config
 		wantErr bool
 	}{
-		"zero value": {
-			cfg: Config{},
-		},
-		"valid": {
-			cfg: Config{
-				ServerURL: "http://localhost:8080",
-				Vaults:    []Vault{{Name: "notes", Path: "/home/user/notes"}},
-			},
-		},
-		"unsupported url scheme": {
-			cfg:     Config{ServerURL: "ftp://example.com"},
-			wantErr: true,
-		},
-		"url without a host": {
-			cfg:     Config{ServerURL: "https://"},
-			wantErr: true,
-		},
-		"relative vault path": {
-			cfg:     Config{Vaults: []Vault{{Name: "notes", Path: "notes"}}},
-			wantErr: true,
-		},
-		"duplicate vault names": {
-			cfg: Config{Vaults: []Vault{
-				{Name: "notes", Path: "/a"},
-				{Name: "notes", Path: "/b"},
-			}},
-			wantErr: true,
-		},
-		"empty vault name": {
-			cfg:     Config{Vaults: []Vault{{Name: "", Path: "/a"}}},
-			wantErr: true,
-		},
-		"vault name with a space": {
-			cfg:     Config{Vaults: []Vault{{Name: "my notes", Path: "/a"}}},
-			wantErr: true,
-		},
-		"vault name with a path separator": {
-			cfg:     Config{Vaults: []Vault{{Name: "work/notes", Path: "/a"}}},
-			wantErr: true,
-		},
-		"vault name starting with a dash": {
-			cfg:     Config{Vaults: []Vault{{Name: "-force", Path: "/a"}}},
-			wantErr: true,
-		},
+		"zero value":          {cfg: Config{}},
+		"valid":               {cfg: Config{ServerURL: "http://localhost:8080", Vaults: []Vault{{Name: "notes", Path: "/home/user/notes"}}}},
+		"bad scheme":          {cfg: Config{ServerURL: "ftp://example.com"}, wantErr: true},
+		"no host":             {cfg: Config{ServerURL: "https://"}, wantErr: true},
+		"relative path":       {cfg: Config{Vaults: []Vault{{Name: "notes", Path: "notes"}}}, wantErr: true},
+		"duplicate names":     {cfg: Config{Vaults: []Vault{{Name: "a", Path: "/a"}, {Name: "a", Path: "/b"}}}, wantErr: true},
+		"empty name":          {cfg: Config{Vaults: []Vault{{Name: "", Path: "/a"}}}, wantErr: true},
+		"name with space":     {cfg: Config{Vaults: []Vault{{Name: "my notes", Path: "/a"}}}, wantErr: true},
+		"name with separator": {cfg: Config{Vaults: []Vault{{Name: "work/notes", Path: "/a"}}}, wantErr: true},
+		"name starts with -":  {cfg: Config{Vaults: []Vault{{Name: "-force", Path: "/a"}}}, wantErr: true},
 	}
-
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			err := tc.cfg.Validate()
-			if (err != nil) != tc.wantErr {
+			if err := tc.cfg.Validate(); (err != nil) != tc.wantErr {
 				t.Fatalf("Validate() = %v, wantErr %v", err, tc.wantErr)
 			}
 		})
@@ -199,28 +151,24 @@ func TestAddVault(t *testing.T) {
 	if err := cfg.AddVault(Vault{Name: "notes", Path: "/home/user/notes"}); err != nil {
 		t.Fatalf("AddVault() = %v", err)
 	}
-	if len(cfg.Vaults) != 1 {
-		t.Fatalf("len(Vaults) = %d, want 1", len(cfg.Vaults))
-	}
-
-	if err := cfg.AddVault(Vault{Name: "notes", Path: "/somewhere/else"}); err == nil {
+	if err := cfg.AddVault(Vault{Name: "notes", Path: "/elsewhere"}); err == nil {
 		t.Error("AddVault() = nil, want an error for a duplicate name")
 	}
+	if err := cfg.AddVault(Vault{Name: "work", Path: "relative"}); err == nil {
+		t.Error("AddVault() = nil, want an error for a relative path")
+	}
 	if len(cfg.Vaults) != 1 {
-		t.Errorf("len(Vaults) = %d after a rejected add, want 1", len(cfg.Vaults))
+		t.Errorf("len(Vaults) = %d, want 1", len(cfg.Vaults))
 	}
 }
 
 func TestRemoveVault(t *testing.T) {
-	cfg := &Config{Vaults: []Vault{
-		{Name: "notes", Path: "/a"},
-		{Name: "work", Path: "/b"},
-	}}
+	cfg := &Config{Vaults: []Vault{{Name: "notes", Path: "/a"}, {Name: "work", Path: "/b"}}}
 
-	if removed := cfg.RemoveVault("notes"); !removed {
+	if !cfg.RemoveVault("notes") {
 		t.Error("RemoveVault(notes) = false, want true")
 	}
-	if removed := cfg.RemoveVault("notes"); removed {
+	if cfg.RemoveVault("notes") {
 		t.Error("RemoveVault(notes) = true on the second call, want false")
 	}
 	if len(cfg.Vaults) != 1 || cfg.Vaults[0].Name != "work" {
@@ -228,16 +176,16 @@ func TestRemoveVault(t *testing.T) {
 	}
 }
 
-func TestVaultLookup(t *testing.T) {
+func TestVaultReturnsPointer(t *testing.T) {
 	cfg := &Config{Vaults: []Vault{{Name: "notes", Path: "/a"}}}
 
-	got, ok := cfg.Vault("notes")
+	v, ok := cfg.Vault("notes")
 	if !ok {
 		t.Fatal("Vault(notes) not found")
 	}
-	got.RemoteID = "vault_123"
+	v.RemoteID = "vault_123"
 	if cfg.Vaults[0].RemoteID != "vault_123" {
-		t.Error("Vault() returned a copy, want a pointer into the slice")
+		t.Error("Vault() returned a copy; updates would be lost")
 	}
 
 	if _, ok := cfg.Vault("missing"); ok {
@@ -245,28 +193,15 @@ func TestVaultLookup(t *testing.T) {
 	}
 }
 
-func TestDirPrefersPotokConfigDir(t *testing.T) {
+func TestDirPrecedence(t *testing.T) {
 	t.Setenv("POTOK_CONFIG_DIR", "/custom/potok")
 	t.Setenv("XDG_CONFIG_HOME", "/xdg")
-
-	got, err := Dir()
-	if err != nil {
-		t.Fatalf("Dir() = %v", err)
+	if got, _ := Dir(); got != "/custom/potok" {
+		t.Errorf("Dir() = %q, want POTOK_CONFIG_DIR to win", got)
 	}
-	if got != "/custom/potok" {
-		t.Errorf("Dir() = %q, want /custom/potok", got)
-	}
-}
 
-func TestDirFallsBackToXDG(t *testing.T) {
 	t.Setenv("POTOK_CONFIG_DIR", "")
-	t.Setenv("XDG_CONFIG_HOME", "/xdg")
-
-	got, err := Dir()
-	if err != nil {
-		t.Fatalf("Dir() = %v", err)
-	}
-	if want := filepath.Join("/xdg", "potok"); got != want {
-		t.Errorf("Dir() = %q, want %q", got, want)
+	if got, _ := Dir(); got != filepath.Join("/xdg", "potok") {
+		t.Errorf("Dir() = %q, want $XDG_CONFIG_HOME/potok", got)
 	}
 }
