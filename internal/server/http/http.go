@@ -15,6 +15,6 @@ func NewHandler(s *store.Store) *Handler {
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	http.ResponseWriter.WriteHeader(w, http.StatusOK)
+	http.ResponseWriter.Write(w, []byte("OK"))
 }

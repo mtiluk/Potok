@@ -1,19 +1,13 @@
 package cli
 
-import (
-	"os"
-	"path/filepath"
-	"testing"
-)
-
-func obsidianVault(t *testing.T) string {
-	t.Helper()
-	dir := t.TempDir()
-	if err := os.Mkdir(filepath.Join(dir, ".obsidian"), 0o755); err != nil {
-		t.Fatalf("Mkdir(.obsidian) = %v", err)
-	}
-	return dir
-}
+// func obsidianVault(t *testing.T) string {
+// 	t.Helper()
+// 	dir := t.TempDir()
+// 	if err := os.Mkdir(filepath.Join(dir, ".obsidian"), 0o755); err != nil {
+// 		t.Fatalf("Mkdir(.obsidian) = %v", err)
+// 	}
+// 	return dir
+// }
 
 // func TestVaultAdd(t *testing.T) {
 // 	tests := []struct {
