@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS blobs;
+DROP TABLE IF EXISTS manifests;
