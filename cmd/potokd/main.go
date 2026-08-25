@@ -41,5 +41,6 @@ func main() {
 	slog.Info("Starting HTTP server")
 	handler := httpapi.NewHandler(conn)
 	nethttp.HandleFunc("GET /health", handler.Health)
-	log.Fatal(nethttp.ListenAndServe(":3000", nil))
+	nethttp.HandleFunc("POST /register", handler.Register)
+	log.Fatal(nethttp.ListenAndServe(cfg.Addr, nil))
 }
