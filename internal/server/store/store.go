@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/michaeltukdev/Potok/internal/server/auth"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -30,6 +31,7 @@ type User struct {
 	Email        string    `json:"email"`
 	PasswordHash string    `json:"password_hash"`
 	IsAdmin      bool      `json:"is_admin"`
+	APIKey       string    `json:"api_key"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
@@ -87,18 +89,24 @@ func (s *Store) CreateUser(ctx context.Context, email, password string) (User, e
 		return User{}, fmt.Errorf("store: create user: %w", err)
 	}
 
+	key, err := auth.GenerateAPIKey()
+	if err != nil {
+		return User{}, fmt.Errorf("store: create user: %w", err)
+	}
+
 	user := User{
 		ID:           uuid.NewString(),
 		Email:        email,
 		PasswordHash: string(hash),
+		APIKey:       key,
 	}
 
 	err = s.db.QueryRowContext(ctx, `
-		INSERT INTO users (id, email, password_hash)
-		VALUES (?, ?, ?)
+		INSERT INTO users (id, email, password_hash, api_key)
+		VALUES (?, ?, ?, ?)
 		ON CONFLICT (email) DO NOTHING
 		RETURNING id, email, is_admin, created_at`,
-		user.ID, user.Email, user.PasswordHash,
+		user.ID, user.Email, user.PasswordHash, key,
 	).Scan(&user.ID, &user.Email, &user.IsAdmin, &user.CreatedAt)
 
 	if err != nil {
